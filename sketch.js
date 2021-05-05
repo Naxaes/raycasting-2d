@@ -44,7 +44,24 @@ class Ray {
 		} else {
 			return;  // Lines do not intersect.
 		}
+	}
 
+	closest(x, y, segments) {
+		let closestDistance = Infinity;
+		let closestPoint 	 = null;
+
+		for (let segment of segments) {
+			let point = this.cast(segment);
+			if (point) {
+				let distance = Math.pow(point.x - x, 2) + Math.pow(point.y - y, 2);
+				if (distance < closestDistance) {
+					closestDistance = distance;
+					closestPoint 	  = point;
+				}
+			}
+		}
+
+		return closestPoint;
 	}
 
 	draw() {
@@ -60,61 +77,43 @@ class RaySource {
 		this.direction = direction;
 
 		this.rays = [];
-		let delta = TWO_PI / 200;
+		let delta = TWO_PI / 300;
 		for (var i = 0; i < TWO_PI - delta; i += delta) {
 			this.rays.push(new Ray(this.position, p5.Vector.fromAngle(i)));
 		}
 	}
 
 	draw(segments) {
-		let x = this.position.x;
-		let y = this.position.y;
-		smooth();
+		let sourceX = this.position.x;
+		let sourceY = this.position.y;
 
+		// Draw source ball.
+		fill(255);
+		ellipse(sourceX, sourceY, 4, 4);
+
+		// Draw rays.
+		stroke(255, 128);
 		for (let ray of this.rays) {
+			let point = ray.closest(sourceX, sourceY, segments);
 			
-			let closest_distance = Infinity;
-			let closest_point 	 = null;
-			
-			for (let segment of segments) {
-				let point = ray.cast(segment);
-				if (point) {
-					let distance = Math.pow(point.x - x, 2) + Math.pow(point.y - y, 2);
-					if (distance < closest_distance) {
-						closest_distance = distance;
-						closest_point 	 = point;
-					}
-				}
-			}
-
-			if (closest_point) {
-				let px = closest_point.x;
-				let py = closest_point.y;
-				ellipse(px, py, 2, 2);
-				stroke(255, 100);
-				line(x, y, px, py);
+			if (point) {
+				line(sourceX, sourceY, point.x, point.y);
 			}
 		}
-		stroke(255);
-		ellipse(this.position.x, this.position.y, 4, 4);
-		noSmooth();
 	}
 }
 
 
+function randomizeSegments() {
+	lineSegments = [];
 
+	// Walls.
+	lineSegments.push(new LineSegment(0, 0, 0, windowHeight));
+	lineSegments.push(new LineSegment(0, 0, windowWidth, 0));
+	lineSegments.push(new LineSegment(windowWidth, windowHeight, windowWidth, 0));
+	lineSegments.push(new LineSegment(windowWidth, windowHeight, 0, windowHeight));
 
-let lineSegments = [];
-let source;
-function setup() {
-	createCanvas(400, 400);
-
-	lineSegments.push(new LineSegment(0, 0, 0, 400));
-	lineSegments.push(new LineSegment(0, 0, 400, 0));
-	lineSegments.push(new LineSegment(400, 400, 400, 0));
-	lineSegments.push(new LineSegment(400, 400, 0, 400));
-
-	for (let i = 0; i < 5; ++i) {
+	for (let i = 0; i < segmentCount; ++i) {
 		let x1 = random(width);
 		let x2 = random(width);
 		let y1 = random(height);
@@ -122,28 +121,76 @@ function setup() {
 
 		lineSegments.push(new LineSegment(x1, y1, x2, y2));
 	}
+}
 
-	source = new RaySource(createVector(100, 200), createVector(1, 0));
+
+let lineSegments = [];
+let source;
+let button;
+let slider;
+let segmentCount;
+function setup() {
+	createCanvas(windowWidth, windowHeight);
+	smooth();
+
+  button = createButton('Randomize segments');
+  button.position(20, 20);
+  button.mousePressed(() => {randomizeSegments(); render();});
+
+  slider = createSlider(0, 32, 1);
+  slider.position(20, 60);
+  segmentCount = slider.value();
+
+  fill(255);
+  text("Segments: " + slider.value(), 20, 54);
+
+	source = new RaySource(
+		createVector(windowWidth/2, windowHeight/2), 
+		createVector(1, 0)
+	);
+
+	randomizeSegments();
+	render();
 }
 
 
 function draw() {
-  background(0);
+	let shouldUpdate = false;
 
   if (keyIsDown(UP_ARROW)) {
-  	source.position.x += source.direction.x;
-  	source.position.y += source.direction.y;
+  	source.position.x += source.direction.x * 2;
+  	source.position.y += source.direction.y * 2;
+  	shouldUpdate = true;
   } else if (keyIsDown(DOWN_ARROW)) {
-  	source.position.x += source.direction.x;
-  	source.position.y += source.direction.y;
+  	source.position.x += source.direction.x * 2;
+  	source.position.y += source.direction.y * 2;
+  	shouldUpdate = true;
   }
 
-  source.direction = createVector(mouseX - source.position.x, mouseY - source.position.y).normalize();
+	let value = slider.value();
+	if (value != segmentCount) {
+		segmentCount = value;
+		randomizeSegments();
+		shouldUpdate = true;
+	}
 
+	if (shouldUpdate) {
+		render();
+	}
+}
+
+
+function render() {
+  background(0);
+  fill(255);
+  text("Segments: " + slider.value(), 20, 54);
+
+  source.direction = createVector(mouseX - source.position.x, mouseY - source.position.y).normalize();
  
  	for (let lineSegment of lineSegments) {
  		lineSegment.draw();
- 	}
+  }
   source.draw(lineSegments);
+
 }
 
